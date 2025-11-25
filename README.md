@@ -16,4 +16,4 @@ Môn học Cấu trúc dữ liệu và Giải thuật.
 * Ngôn ngữ: C
 * Kỹ thuật: Struct, Mảng, File I/O, Merge Sort, Radix Sort.
 
-⇒ Chương trình nhằm mục đích ứng dụng thuật toán sắp xếp merge sort, radix sort, struct bằng ngôn ngữ C để xử lí dữ liệu lớn từ CSV.
+⇒ Chương trình nhằm mục đích ứng dụng thuật toán sắp xếp Merge Sort, Radix Sort, Struct bằng ngôn ngữ C để xử lí dữ liệu lớn từ CSV.
