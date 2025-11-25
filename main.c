@@ -64,7 +64,7 @@ void docFile(const char *filename, home h[], int *n) {
     if (fgets(line, sizeof(line), file) == NULL) return;
 
     // Đọc từng dòng
-    while (fgets(line, sizeof(line), file) && count < 10000) {
+    while (fgets(line, sizeof(line), file) && count < 20000) {
         // 1. Lấy Price (Cột 4)
         get_column(line, 4, temp);
         h[count].price = (int)atof(temp);
@@ -72,7 +72,7 @@ void docFile(const char *filename, home h[], int *n) {
         // 2. Lấy SellerG (Cột 6)
         get_column(line, 6, h[count].slr);
 
-        // 3. Lấy Postcode (Cột 9) --- [ĐÃ FIX LỖI CRASH Ở ĐÂY]
+        // 3. Lấy Postcode (Cột 9) 
         get_column(line, 9, temp); 
         char *dot = strchr(temp, '.'); // Tìm dấu chấm
         if (dot) *dot = '\0';          // Cắt bỏ phần .0
@@ -137,13 +137,17 @@ void Merge(home a[], int nb, int nc, int k, home b[], home c[]) {
     int p, pb, pc, ib, ic, kb, kc;
     p = pb = pc = 0;
     ib = ic = 0;
+
+    // Chạy khi cả 2 bên đều còn phần tử
     while ((0 < nb) && (0 < nc)) {
         kb = min(k, nb);
         kc = min(k, nc);
+
+        // So sánh YearBuilt (yb)
         if (b[pb + ib].yb <= c[pc + ic].yb) {
             a[p++] = b[pb + ib];
             ib++;
-            if (ib == kb) {
+            if (ib == kb) { // Hết block bên b -> Chép nốt block bên c
                 for (; ic < kc; ic++)
                     a[p++] = c[pc + ic];
                 pb += kb; pc += kc;
@@ -153,7 +157,7 @@ void Merge(home a[], int nb, int nc, int k, home b[], home c[]) {
         } else {
             a[p++] = c[pc + ic];
             ic++;
-            if (ic == kc) {
+            if (ic == kc) { // Hết block bên c -> Chép nốt block bên b
                 for (; ib < kb; ib++)
                     a[p++] = b[pb + ib];
                 pb += kb; pc += kc;
@@ -162,20 +166,32 @@ void Merge(home a[], int nb, int nc, int k, home b[], home c[]) {
             }
         }
     }
+
+    // Chép phần còn dư của mảng b (nếu có) vào a
+    while (nb > 0) {
+        a[p++] = b[pb++];
+        nb--;
+    }
+
+    // Chép phần còn dư của mảng c (nếu có) vào a
+    while (nc > 0) {
+        a[p++] = c[pc++];
+        nc--;
+    }
 }
 
 // Hàm Merge Sort
 void MergeSort(home a[], int n) {
-    home b[10000], c[10000];
+    static home b[20000], c[20000]; 
+    
     int pb, pc;
-    int i, k = 1;
+    int k = 1;
     do {
         Distribute(a, n, &pb, &pc, k, b, c);
         Merge(a, pb, pc, k, b, c);
         k *= 2;
     } while (k < n);
 }
-
 
 // Hàm đếm số lượng ký tự postcode để sắp xếp
 int getMaxLength(home h[], int n) {
@@ -191,25 +207,50 @@ int getMaxLength(home h[], int n) {
 
 // Hàm Radix Sort cho Postcode
 void count_Postcode(home h[], int n, int exp) {
-
     home *output = (home *)malloc(n * sizeof(home));
+    if (!output) return; // Kiểm tra malloc
+    
     int count[10] = {0};
 
+    // Bước 1: Đếm tần suất
     for (int i = 0; i < n; i++) {
-        int index = (h[i].pc[exp] - '0');
-        count[index]++;
+        int len = strlen(h[i].pc);
+        int digit;
+        
+        // KIỂM TRA AN TOÀN:
+        // Nếu vị trí exp nằm ngoài độ dài chuỗi -> Coi là 0
+        // Hoặc ký tự đó không phải số -> Coi là 0
+        if (exp >= len || h[i].pc[exp] < '0' || h[i].pc[exp] > '9') {
+            digit = 0;
+        } else {
+            digit = h[i].pc[exp] - '0';
+        }
+        
+        count[digit]++;
     }
 
+    // Bước 2: Cộng dồn
     for (int i = 1; i < 10; i++) {
         count[i] += count[i - 1];
     }
 
+    // Bước 3: Sắp xếp vào mảng output
     for (int i = n - 1; i >= 0; i--) {
-        int index = (h[i].pc[exp] - '0');
-        output[count[index] - 1] = h[i];
-        count[index]--;
+        int len = strlen(h[i].pc);
+        int digit;
+        
+        // KIỂM TRA AN TOÀN LẦN 2 (Y chang trên):
+        if (exp >= len || h[i].pc[exp] < '0' || h[i].pc[exp] > '9') {
+            digit = 0;
+        } else {
+            digit = h[i].pc[exp] - '0';
+        }
+        
+        output[count[digit] - 1] = h[i];
+        count[digit]--;
     }
 
+    // Bước 4: Copy ngược lại mảng chính
     for (int i = 0; i < n; i++) {
         h[i] = output[i];
     }
@@ -240,7 +281,7 @@ void insellers(sc slrq[], int scount) {
 
 // Hàm tìm seller bán nhiều nhà nhất
 void bestsellers(home h[], int n) {
-    sc slrq[3000];  //mảng slrq[] lưu các seller vào struct sc theo tên
+    static sc slrq[3000];  //mảng slrq[] lưu các seller vào struct sc theo tên
     int scount = 0; //biến đếm số lượng seller trong mảng slqr[]
 
     // Đếm số lượng nhà bán của từng seller
@@ -274,7 +315,7 @@ void bestsellers(home h[], int n) {
 }
 
 int main() {
-    home h[10000];  //mảng h lưu 10k dữ liệu
+    static home h[15000];  //mảng h lưu 10k dữ liệu
     int n = 0, c;   //n là biến số lượng, có thể n = 10000
 
     docFile("melb_data.csv", h, &n); //gọi hàm đọc file: melb_data.csv, truyền mảng h và địa chỉ n
